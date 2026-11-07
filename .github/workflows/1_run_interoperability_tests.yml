@@ -6,11 +6,11 @@ on:
       publishers:
         description: Publishers to use
         type: string
-        default: '["connext_dds","toc_coredx_dds", "eclipse_cyclone", "opendds", "dust_dds"]'
+        default: '["connext_dds","toc_coredx_dds", "eclipse_cyclone", "opendds", "dust_dds", "zerodds"]'
       subscribers:
         description: Subscribers to use
         type: string
-        default: '["connext_dds","toc_coredx_dds", "eclipse_cyclone", "opendds", "dust_dds"]'
+        default: '["connext_dds","toc_coredx_dds", "eclipse_cyclone", "opendds", "dust_dds", "zerodds"]'
 jobs:
   generate_timestamp:
     runs-on: ubuntu-latest
@@ -24,9 +24,33 @@ jobs:
         path: |
           ./timestamp
 
+  # ZeroDDS is not in the suite's release: its test_main is built here from
+  # github.com/zero-objects/zero-dds, under the name the harness reads a
+  # product from.
+  build_zerodds:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout ZeroDDS
+      uses: actions/checkout@v6
+      with:
+        repository: zero-objects/zero-dds
+        path: zero-dds
+    - name: Build zerodds_test_main_linux
+      working-directory: zero-dds
+      run: |
+        cargo build --locked --release -p zerodds-omg-xtypes-test-main --bin zerodds_test_main
+        mkdir -p ../zerodds
+        cp target/release/zerodds_test_main ../zerodds/zerodds_test_main_linux
+        git rev-parse HEAD > ../zerodds/zerodds_commit.txt
+    - name: Upload zerodds_test_main_linux
+      uses: actions/upload-artifact@v7
+      with:
+        name: zerodds_test_main
+        path: zerodds/
+
   run_tests:
     runs-on: ubuntu-latest
-    needs: generate_timestamp
+    needs: [generate_timestamp, build_zerodds]
     strategy:
       matrix:
         publisher: ${{ fromJson(github.event.inputs.publishers) }}
@@ -41,11 +65,19 @@ jobs:
     - name: Download shape_main executables
       uses: robinraju/release-downloader@v1.13
       with:
+        repository: omg-dds/dds-xtypes
         latest: true
         fileName: "*"
         out-file-path: zipped_executables
     - name: Unzip executables
       run: unzip 'zipped_executables/*.zip' -d executables
+    - name: Download zerodds_test_main_linux
+      uses: actions/download-artifact@v8
+      with:
+        name: zerodds_test_main
+        path: executables
+    - name: Make zerodds_test_main_linux executable
+      run: chmod +x executables/zerodds_test_main_linux
     - name: Install Python requirements
       run: pip install --requirement requirements.txt
     - name: Install libxerces-c3.2
