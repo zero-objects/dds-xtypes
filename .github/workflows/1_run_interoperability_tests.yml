@@ -80,8 +80,23 @@ jobs:
       with:
         name: zerodds_test_main
         path: executables
+    # On four axes the suite's expectations assume another answer than the
+    # clause, and ZeroDDS keeps the clause as its default; the suite runs pass
+    # the four flags, as the weekly run on ZeroDDS's GitLab does (see "Where
+    # the suite expects another answer than the clause" in
+    # tools/omg-xtypes-test-main/README.md of ZeroDDS). A wrapper under the
+    # executable's own name appends them, so the harness reads the same
+    # product name off it.
     - name: Make zerodds-<version>-<commit>_test_main_linux executable
-      run: chmod +x executables/zerodds-*_test_main_linux
+      run: |
+        exe=$(ls executables/zerodds-*_test_main_linux)
+        mv "$exe" "$exe.real"
+        chmod +x "$exe.real"
+        printf '#!/bin/sh\nexec "%s" "$@" %s\n' "$(realpath "$exe.real")" \
+          "--key-member-bounds ignored --key-on-union-discriminator carried --defaulted-discriminator-member stream-value --strong-assignability names_ignored" \
+          > "$exe"
+        chmod +x "$exe"
+        cat "$exe"
     - name: Install Python requirements
       run: pip install --requirement requirements.txt
     - name: Install libxerces-c3.2
