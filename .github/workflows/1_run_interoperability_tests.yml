@@ -35,14 +35,17 @@ jobs:
       with:
         repository: zero-objects/zero-dds
         path: zero-dds
-    - name: Build zerodds_test_main_linux
+    - name: Build zerodds-<version>-<commit>_test_main_linux
       working-directory: zero-dds
       run: |
         cargo build --locked --release -p zerodds-omg-xtypes-test-main --bin zerodds_test_main
         mkdir -p ../zerodds
-        cp target/release/zerodds_test_main ../zerodds/zerodds_test_main_linux
+        version=$(cargo pkgid -p zerodds-omg-xtypes-test-main | sed 's/.*[#@]//')
+        name=zerodds-$version-$(git rev-parse --short=9 HEAD)_test_main_linux
+        cp target/release/zerodds_test_main "../zerodds/$name"
+        echo "$name" > ../zerodds/zerodds_name.txt
         git rev-parse HEAD > ../zerodds/zerodds_commit.txt
-    - name: Upload zerodds_test_main_linux
+    - name: Upload zerodds-<version>-<commit>_test_main_linux
       uses: actions/upload-artifact@v7
       with:
         name: zerodds_test_main
@@ -72,13 +75,13 @@ jobs:
         out-file-path: zipped_executables
     - name: Unzip executables
       run: unzip 'zipped_executables/*.zip' -d executables
-    - name: Download zerodds_test_main_linux
+    - name: Download zerodds-<version>-<commit>_test_main_linux
       uses: actions/download-artifact@v8
       with:
         name: zerodds_test_main
         path: executables
-    - name: Make zerodds_test_main_linux executable
-      run: chmod +x executables/zerodds_test_main_linux
+    - name: Make zerodds-<version>-<commit>_test_main_linux executable
+      run: chmod +x executables/zerodds-*_test_main_linux
     - name: Install Python requirements
       run: pip install --requirement requirements.txt
     - name: Install libxerces-c3.2
